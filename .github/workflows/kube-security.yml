@@ -60,7 +60,8 @@ jobs:
         git clone https://github.com/madhuakula/kubernetes-goat.git
         cd kubernetes-goat
         bash setup-kubernetes-goat.sh
-        kubectl get pods -w
+        sleep 20s
+        kubectl get pods
         
    
     - name: Run Kube-bench & kubescape
