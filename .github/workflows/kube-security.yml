@@ -1,0 +1,80 @@
+name: Kubernetes Scan 
+on:
+  push:
+  workflow_dispatch:
+  
+jobs:
+  Kubernetes-security:
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    
+    # Setting up minikube for testing
+    - name: Set up minikube
+      continue-on-error: true
+      run: |
+        sudo apt install -y curl wget apt-transport-https
+        wget https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
+         
+    - name: Setup kubectl
+      continue-on-error: true
+      run: |
+         curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl 
+         chmod +x kubectl
+         sudo mv kubectl /usr/local/bin/
+         minikube start --addons=ingress --install-addons=true
+         kubectl cluster-info
+         kubectl get nodes   
+         echo "name of the pods: "
+         kubectl get namespace default
+         
+    - name: Deploy the application
+      continue-on-error: true
+      run: |
+         kubectl create deployment my-dep --image=nginx --replicas=3      
+         kubectl describe deployment my-dep
+   
+         kubectl get pods --all-namespaces
+         kubectl get pods 
+         sleep 20s 
+         kubectl get deployments.apps my-dep
+         kubectl get pods
+         
+         
+    - name: Expose application
+      continue-on-error: true
+      run: |   
+        kubectl expose deployment my-dep --name=my-dep1-svc --type=NodePort --port=9092
+        kubectl get svc my-dep1-svc
+        
+    
+    - name: Setting up vulnerable kubernetes-goat
+      continue-on-error: true
+      run: |  
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+        git clone https://github.com/madhuakula/kubernetes-goat.git
+        cd kubernetes-goat
+        bash setup-kubernetes-goat.sh
+        kubectl get pods -w
+        
+   
+    - name: Run Kube-bench & kubescape
+      continue-on-error: true
+
+      run: |
+
+        curl -s https://raw.githubusercontent.com/armosec/kubescape/master/install.sh | /bin/bash
+        kubescape scan --submit --enable-host-scan --verbose
+        git clone https://github.com/aquasecurity/kube-bench.git
+        cd kube-bench
+        kubectl apply -f job.yaml
+        kubectl get pods 
+        kubectl get pods -w
+        export POD_NAME=$(kubectl get pods -o=name | grep kube-bench | sed "s/^.\{4\}//")
+        echo $POD_NAME
+        kubectl logs $POD_NAME
