@@ -61,7 +61,7 @@ jobs:
         cd kubernetes-goat
         bash setup-kubernetes-goat.sh
         sleep 20s
-        kubectl get pods
+        kubectl get pods -w
         
    
     - name: Run Kube-bench & kubescape
