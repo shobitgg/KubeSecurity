@@ -1,0 +1,82 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+# Kubernetes Security
+
+trigger:
+- azure-pipelines # name of the branch which should be modified according to the branches available
+- main 
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: echo Hello, kubernetes!
+  displayName: 'Run a one-line script'
+
+- script: |
+        sudo apt install -y curl wget apt-transport-https
+        wget https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        sudo cp minikube-linux-amd64 /usr/local/bin/minikube
+        sudo chmod +x /usr/local/bin/minikube
+        minikube version
+  displayName: 'Set up minikube'
+  
+- script: |
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl 
+         chmod +x kubectl
+         sudo mv kubectl /usr/local/bin/
+        
+         minikube start 
+         kubectl cluster-info
+         kubectl get nodes
+         
+         echo "name of the pods: "
+         kubectl get namespace default
+  displayName: 'Set up kubectl'
+
+- script: |
+        kubectl create deployment my-dep --image=nginx --replicas=3      
+         kubectl describe deployment my-dep
+   
+         kubectl get pods --all-namespaces
+         kubectl get pods 
+         sleep 20s 
+         kubectl get deployments.apps my-dep
+         
+         #kubectl get pods 
+         #sleep 20s 
+         #kubectl get pods 
+         #sleep 15m
+         kubectl get pods
+  displayName: 'Deploy the application'
+
+- script: |
+        kubectl expose deployment my-dep --name=my-dep1-svc --type=NodePort --port=9092
+        kubectl get svc my-dep1-svc
+  displayName: 'Expose application'
+
+- script: |
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        chmod 700 get_helm.sh
+        ./get_helm.sh
+        git clone https://github.com/madhuakula/kubernetes-goat.git
+        cd kubernetes-goat
+        bash setup-kubernetes-goat.sh
+        sleep 20s
+        kubectl get pods -w
+  displayName: 'Setting up vulnerable kubernetes-goat'        
+
+- script: |
+        curl -s https://raw.githubusercontent.com/armosec/kubescape/master/install.sh | /bin/bash
+        kubescape scan --submit --enable-host-scan --verbose
+        git clone https://github.com/aquasecurity/kube-bench.git
+        cd kube-bench
+        kubectl apply -f job.yaml
+        kubectl get pods 
+        kubectl get pods -w
+        export POD_NAME=$(kubectl get pods -o=name | grep kube-bench | sed "s/^.\{4\}//")
+        echo $POD_NAME
+        kubectl logs $POD_NAME
+  displayName: 'Run Kube-bench and kubescape'
