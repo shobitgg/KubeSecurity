@@ -70,6 +70,7 @@ jobs:
       run: |
 
         curl -s https://raw.githubusercontent.com/armosec/kubescape/master/install.sh | /bin/bash
+        export PATH=$PATH:/home/runner/.kubescape/bin
         kubescape scan --submit --enable-host-scan --verbose
         git clone https://github.com/aquasecurity/kube-bench.git
         cd kube-bench
